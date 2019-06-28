@@ -1,0 +1,127 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: {{ template "users.fullname" . }}
+  labels:
+    app: {{ template "users.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+{{- with .Values.deployment.annotations }}
+  annotations:
+{{ toYaml . | indent 4 }}
+{{- end }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ template "users.name" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "users.name" . }}
+        release: {{ .Release.Name }}
+        {{ tpl ( .Values.nats.podLabel.key ) . }}: {{ .Values.nats.podLabel.value | quote }}
+    spec:
+{{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | indent 8 }}
+{{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: {{ template "users.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.command }}
+          command: ["{{ .Values.command }}"]
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+          env:
+          - name: MONGO_URI
+            valueFrom:
+              secretKeyRef:
+                {{ if .Values.mongodb.uriSecretName -}}
+                name: {{ .Values.mongodb.uriSecretName }}
+                {{ else -}}
+                name: {{ .Release.Name }}-mongoconfig
+                {{ end -}}
+                key: mongodb-uri
+          - name: MONGO_SSL
+            value: {{ .Values.mongodb.ssl | quote }}
+          - name: MONGO_SSL_VALIDATE
+            value: {{ .Values.mongodb.sslValidate | quote }}
+          - name: MONGO_CHECK_SERVER_IDENTITY
+            value: {{ .Values.mongodb.checkServerIdentity | quote }}
+          - name: LOG_LEVEL
+            value: {{ .Values.logLevel }}
+          - name: ACCOUNT
+            value: {{ .Values.account }}
+          - name: ENVIRONMENT
+            value: {{ .Values.environment }}
+          - name: REGION
+            value: {{ .Values.region }}
+          - name: JWKS_ENDPOINT
+            value: {{ default (printf "http://%s-keys:8080/v1/keys/qlik.api.internal" .Release.Name ) .Values.jwks.uri | quote }}
+          - name: KEY_ID
+            value: {{ .Values.serviceJwt.keyId | quote }}
+          - name: PRIVATE_KEY_FILE
+            value: "/run/secret/users/jwtPrivateKey"
+          - name: NATS_ENABLED
+            value: {{ .Values.nats.enabled | quote }}
+          - name: NATS_URL
+            value: {{ default (printf "http://%s-nats-client:4222" .Release.Name) .Values.nats.url | quote }}
+          - name: NATS_CLUSTER_ID
+            value: {{ tpl ( .Values.nats.release) . }}-nats-streaming-cluster
+          - name: NATS_CLIENT_ID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: ROLLBAR_ENABLED
+            value: {{ .Values.rollbar.enabled | quote}}
+          {{- if .Values.rollbar.enabled }}
+          - name: ROLLBAR_TOKEN
+            value: {{ required "A valid .Values.rollbar.token entry required!" (.Values.rollbar.token | quote) }}
+          {{- end }}
+          - name: INTERNAL_TOKENS_RESOURCE
+            value: {{ default (printf "http://%s-edge-auth:8080/v1" .Release.Name ) .Values.config.resources.internalTokens | quote }}
+          - name: FEATURE_FLAGS_RESOURCE
+            value: {{ default (printf "http://%s-feature-flags:8080/v1" .Release.Name ) .Values.config.resources.featureFlags | quote }}
+          volumeMounts:
+          - name: {{ template "users.fullname" . }}-secret
+            mountPath: "/run/secret/users"
+            readOnly: true
+          {{- if .Values.srcPath }}
+          - mountPath: /usr/src/app
+            name: src-dir
+          {{- end }}
+{{- if .Values.global }}{{- if .Values.global.certs }}{{- if .Values.global.certs.enabled }}
+{{- include "qlik.ca-certificates.volumeMount" . | nindent 10 }}
+{{- end }}{{- end }}{{- end }}
+{{- if .Values.resources }}
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+{{- end }}
+      volumes:
+        - name: {{ template "users.fullname" . }}-secret
+          secret:
+            secretName: {{ template "users.fullname" . }}-secret
+      {{- if .Values.srcPath }}
+        - name: src-dir
+          hostPath:
+            path: {{ .Values.srcPath }}
+            type: Directory
+      {{- end }}
+{{- if .Values.global }}{{- if .Values.global.certs }}{{- if .Values.global.certs.enabled }}
+{{- include "qlik.ca-certificates.volume" . | nindent 8 }}
+{{- end }}{{- end }}{{- end }}

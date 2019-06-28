@@ -1,0 +1,158 @@
+# Default values for users.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+image:
+  ## Default registry where the repository is pulled from.
+  ## `global.imageRegistry` if set override this value.
+  registry: qliktech-docker.jfrog.io
+
+  ## users image
+  ##
+  repository: users
+
+  ## users image version.
+  ## ref: https://hub.docker.com/r/qlik/users/tags/
+  ##
+  tag: 1.10.7
+
+  ## Specify a imagePullPolicy: 'Always' if imageTag is 'latest', else set to 'IfNotPresent'.
+  ## ref: https://kubernetes.io/docs/user-guide/images/#pre-pulling-images
+  ##
+  # pullPolicy:
+
+## Secrets for pulling images from a private docker registry.
+##
+imagePullSecrets:
+  - name: artifactory-docker-secret
+
+## Number of replicas.
+##
+replicaCount: 1
+
+## Deployment configuration.
+## ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
+deployment: {}
+  ## Annotations to be added to the deployment.
+  ##
+  # annotations:
+
+## Service configuration.
+## ref: https://kubernetes.io/docs/user-guide/services/
+##
+service:
+  type: ClusterIP
+  port: 8080
+  ## Annotations to be added to the service.
+  ##
+  # annotations:
+
+## Resource management
+## https://kubernetes.io/docs/tasks/configure-pod-container/assign-cpu-resource/#motivation-for-cpu-requests-and-limits
+resources: {}
+
+## Ingress configuration.
+## ref: https://kubernetes.io/docs/user-guide/ingress/
+##
+ingress:
+
+  ## Annotations to be added to the ingress.
+  ##
+  annotations: []
+
+  ## class provides an kubernetes.io/ingress.class override of default nginx
+  class: "nginx"
+
+  ## authURL override of default http://{.Release.Name}.{.Release.Namespace}.svc.cluster.local:8080/v1/auth
+  # authURL:
+
+## Metrics configuration
+metrics:
+  ## Prometheus configuration
+  prometheus:
+    ## prometheus.enabled determines whether the annotations for prometheus scraping are included
+    enabled: true
+
+## MongoDB configuration
+mongodb:
+  image:
+    ## Bitnami MongoDB image tag
+    ## ref: https://hub.docker.com/r/bitnami/mongodb/tags/
+    ## This value overrides the mongo image tag in chart v.4.5.0 (tag: 4.0.3-debian-9)
+    tag: 3.6.6-debian-9
+  ## Enables a local mongo chart
+  enabled: true
+  ## disable password for local dev mode
+  usePassword: false
+
+  ## Specify a custom mongo uri. Not needed when the local mongo is enabled.
+  ## Secret: {{ .Release.Name }}-mongoconfig.mongodb-uri
+  # uri:
+
+  ## name of secret to mount for mongo URI. The secret must have the `mongodb-uri` key
+  # uriSecretName:
+
+  ## Boolean value indicating whether the mongo client should enforce a SSL connection with the server.
+  # ssl:
+
+  ## Boolean value indicating whether the mongo client should validate mongo server SSL certificate again
+  ## certificate authority. If false, certificate validity will not be checked.
+  # sslValidate:
+
+  ## Boolean value indicating whether SSL certificate hostname should match connection URI.
+  ## If false, the client will allow connections to mongo servers with trusted certifcates
+  ## where the hostname/IP address on the certificate does not match the connection URI.
+  # checkServerIdentity:
+
+## Log level (silly, debug, verbose, info, warn or error)
+logLevel: verbose
+
+## JWKS configuration
+jwks: {}
+  ## URI where the JWKS to validate JWTs is located. This overrides the default of http://{{ .Release.Name }}-keys:8080/v1/keys/qlik.api.internal
+  # uri:
+
+## RSA or EC Private signing key used for requesting service JWT
+##
+serviceJwt:
+  jwtPrivateKey: |
+    -----BEGIN EC PRIVATE KEY-----
+    MIGkAgEBBDDipCgH+56PrsHfN7rZhdMyUmqYKOQ1Anub3trwMNvKbdwTmqmKBuUN
+    aTQIJZRClN6gBwYFK4EEACKhZANiAAQmEYPRlH+0EpIgKGQBaVgTULaRW4IXiAdR
+    MRly/OHWLvtZ5Ilsyh86wto9DrwSQLwW1QuUg4edp9rx1kNj1ouemj5OHeGSURBi
+    cw0EeQhT6dSm5HZFDzijRuPwax9vV1Y=
+    -----END EC PRIVATE KEY-----
+  keyId: jhnbOw3nZwHlAfz4FRjEPgo5CG_Tw0uezR2VsyagBzY
+
+## Deployment metadata
+environment: example
+region: example
+
+## Rollbar configuration
+rollbar:
+  ## Enables a rollbar error tracking
+  enabled: false
+
+## NATS configuration
+##
+nats:
+  enabled: false
+
+  # Specify the release bringing up messaging chart
+  release: "{{ .Release.Name }}"
+
+  ## Pod label required to allow communication with NATS
+  podLabel:
+    key: "{{ .Release.Name }}-nats-client"
+    value: true
+
+  ## NATS uri
+  # uri:
+
+config:
+  resources: {}
+    ## URI where the internalToken resource is located - overrides the default of http://{.Release.Name}-edge-auth:8080/v1
+    # internalTokens:
+
+    ## URI where the featureFlags resource is located - overrides the default of http://{.Release.Name}-feature-flags:8080/v1
+    # featureFlags:
